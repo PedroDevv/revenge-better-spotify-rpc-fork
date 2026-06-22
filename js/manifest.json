@@ -1,0 +1,14 @@
+{
+	"name": "Better Spotify RPC",
+	"description": "A richer Spotify profile card with album-art theming, live progress, queue preview, and synced lyrics.",
+	"authors": [
+		{
+			"name": "rbxsu",
+			"id": "0"
+		}
+	],
+	"main": "src/index.tsx",
+	"vendetta": {
+		"icon": "MusicIcon"
+	}
+}

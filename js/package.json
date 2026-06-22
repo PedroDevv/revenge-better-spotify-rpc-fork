@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit"
+  },
+  "private": true,
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.8.3",
+    "vendetta-types": "^2.4.21"
+  }
+}
