@@ -64,7 +64,14 @@ const flexCenter = {
 	justifyContent: "center",
 } as const;
 
-const styles = stylesheet.createThemedStyleSheet({
+const createStyles =
+	typeof stylesheet?.createThemedStyleSheet === "function"
+		? stylesheet.createThemedStyleSheet.bind(stylesheet)
+		: typeof RN.StyleSheet?.create === "function"
+			? RN.StyleSheet.create.bind(RN.StyleSheet)
+			: (input: any) => input;
+
+const styles = createStyles({
 	card: {
 		overflow: "hidden",
 		borderRadius: 16,
@@ -590,22 +597,25 @@ function patchProfileCard(component: any, variant: "you" | "simplified" | "bio")
 	});
 }
 
+let patches: (() => void)[] = [];
+
 export function onLoad() {
 	vstorage.showLyrics ??= true;
 	vstorage.showQueue ??= true;
 	vstorage.overrideProfileTheme ??= true;
-}
 
-export const onUnload = (() => {
-	const patches = [
+	patches = [
 		patchProfileCard(YouAboutMeCard, "you"),
 		patchProfileCard(SimplifiedUserProfileAboutMeCard, "simplified"),
 		patchProfileCard(UserProfileAboutMeCard, "simplified"),
 		patchProfileCard(UserProfileBio, "bio"),
 	].filter(Boolean) as (() => void)[];
+}
 
-	return () => patches.forEach(unpatch => unpatch());
-})();
+export function onUnload() {
+	patches.forEach(unpatch => unpatch());
+	patches = [];
+}
 
 export function settings() {
 	if (!TableRowGroup || !TableSwitchRow) {
