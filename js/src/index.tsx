@@ -44,6 +44,20 @@ type PluginStorage = {
 };
 
 const vstorage = storage as PluginStorage;
+const fallbackReact = {
+	createElement: (type: any, props?: any, ...children: any[]) => ({ type, props: { ...props, children } }),
+	useEffect: () => undefined,
+	useMemo: (factory: any) => factory(),
+	useState: (initial: any) => [initial, () => undefined],
+};
+const SafeReact = (React?.createElement ? React : fallbackReact) as typeof React;
+const SafeRN = RN ?? {};
+const color = {
+	backgroundSecondary: semanticColors?.BACKGROUND_SECONDARY ?? "#202225",
+	borderSubtle: semanticColors?.BORDER_SUBTLE ?? "rgba(255,255,255,0.12)",
+	textMuted: semanticColors?.TEXT_MUTED ?? "rgba(255,255,255,0.62)",
+	textNormal: semanticColors?.TEXT_NORMAL ?? "#ffffff",
+};
 let SpotifyStore: any;
 let UserStore: any;
 let TableRow: any;
@@ -90,8 +104,8 @@ const flexCenter = {
 const createStyles =
 	typeof stylesheet?.createThemedStyleSheet === "function"
 		? stylesheet.createThemedStyleSheet.bind(stylesheet)
-		: typeof RN.StyleSheet?.create === "function"
-			? RN.StyleSheet.create.bind(RN.StyleSheet)
+		: typeof SafeRN.StyleSheet?.create === "function"
+			? SafeRN.StyleSheet.create.bind(SafeRN.StyleSheet)
 			: (input: any) => input;
 
 const styles = createStyles({
@@ -101,8 +115,8 @@ const styles = createStyles({
 		marginHorizontal: 12,
 		marginVertical: 8,
 		borderWidth: 1,
-		borderColor: semanticColors.BORDER_SUBTLE,
-		backgroundColor: semanticColors.BACKGROUND_SECONDARY,
+		borderColor: color.borderSubtle,
+		backgroundColor: color.backgroundSecondary,
 	},
 	themeWash: {
 		position: "absolute",
@@ -262,12 +276,12 @@ const styles = createStyles({
 		marginVertical: 8,
 		borderRadius: 14,
 		padding: 14,
-		backgroundColor: semanticColors.BACKGROUND_SECONDARY,
+		backgroundColor: color.backgroundSecondary,
 		borderWidth: 1,
-		borderColor: semanticColors.BORDER_SUBTLE,
+		borderColor: color.borderSubtle,
 	},
 	emptyText: {
-		color: semanticColors.TEXT_MUTED,
+		color: color.textMuted,
 		fontSize: 13,
 		fontWeight: "600",
 	},
@@ -384,8 +398,8 @@ function parseSyncedLyrics(raw?: string): LyricLine[] {
 }
 
 function useSpotifySnapshot() {
-	const [tick, setTick] = React.useState(0);
-	React.useEffect(() => {
+	const [tick, setTick] = SafeReact.useState(0);
+	SafeReact.useEffect(() => {
 		const update = () => setTick((value: number) => value + 1);
 		const interval = setInterval(update, 1000);
 		const unsubscribers = [
@@ -406,7 +420,7 @@ function useSpotifySnapshot() {
 		};
 	}, []);
 
-	return React.useMemo(() => ({
+	return SafeReact.useMemo(() => ({
 		track: getCurrentTrack(),
 		next: getNextTrack(),
 		tick,
@@ -414,8 +428,8 @@ function useSpotifySnapshot() {
 }
 
 function useSyncedLyrics(track: Track | null) {
-	const [lyrics, setLyrics] = React.useState([] as LyricLine[]);
-	React.useEffect(() => {
+	const [lyrics, setLyrics] = SafeReact.useState([] as LyricLine[]);
+	SafeReact.useEffect(() => {
 		if (!vstorage.showLyrics || !track?.title || !track.artist) {
 			setLyrics([]);
 			return;
@@ -445,8 +459,8 @@ function useSyncedLyrics(track: Track | null) {
 
 function SpotifyProfileTheme({ colors }: { colors: ReturnType<typeof hashPalette> }) {
 	if (!vstorage.overrideProfileTheme) return null;
-	return React.createElement(
-		RN.View,
+	return SafeReact.createElement(
+		SafeRN.View,
 		{
 			pointerEvents: "none",
 			style: [
@@ -454,9 +468,9 @@ function SpotifyProfileTheme({ colors }: { colors: ReturnType<typeof hashPalette
 				{ backgroundColor: colors.dark },
 			],
 		},
-		React.createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.9 }] }),
-		React.createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.72 }] }),
-		React.createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.8 }] }),
+		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.9 }] }),
+		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.72 }] }),
+		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.8 }] }),
 	);
 }
 
@@ -469,12 +483,12 @@ function LyricsBlock({ lyrics, position }: { lyrics: LyricLine[]; position: numb
 		),
 	);
 	const visible = lyrics.slice(Math.max(0, active - 1), active + 3);
-	return React.createElement(
-		RN.View,
+	return SafeReact.createElement(
+		SafeRN.View,
 		{ style: styles.lyrics },
 		visible.map(line =>
-			React.createElement(
-				RN.Text,
+			SafeReact.createElement(
+				SafeRN.Text,
 				{
 					key: `${line.time}-${line.text}`,
 					numberOfLines: 1,
@@ -491,18 +505,18 @@ function LyricsBlock({ lyrics, position }: { lyrics: LyricLine[]; position: numb
 
 function QueueCard({ next, colors }: { next: Track | null; colors: ReturnType<typeof hashPalette> }) {
 	if (!vstorage.showQueue) return null;
-	return React.createElement(
-		RN.View,
+	return SafeReact.createElement(
+		SafeRN.View,
 		{ style: [styles.queueCard, { backgroundColor: `${colors.dark}` }] },
-		next?.art && React.createElement(RN.Image, { source: { uri: next.art }, style: styles.queueArt }),
-		React.createElement(RN.Text, { style: styles.queueTitle }, "Up next"),
-		React.createElement(
-			RN.Text,
+		next?.art && SafeReact.createElement(SafeRN.Image, { source: { uri: next.art }, style: styles.queueArt }),
+		SafeReact.createElement(SafeRN.Text, { style: styles.queueTitle }, "Up next"),
+		SafeReact.createElement(
+			SafeRN.Text,
 			{ numberOfLines: 1, style: styles.queueSong },
 			next?.title ?? "Queue hidden by Discord",
 		),
-		React.createElement(
-			RN.Text,
+		SafeReact.createElement(
+			SafeRN.Text,
 			{ numberOfLines: 1, style: styles.queueArtist },
 			next?.artist ?? "The panel will fill this when Spotify exposes the next track.",
 		),
@@ -514,10 +528,10 @@ function SpotifyCard() {
 	const lyrics = useSyncedLyrics(track);
 
 	if (!track) {
-		return React.createElement(
-			RN.View,
+		return SafeReact.createElement(
+			SafeRN.View,
 			{ style: styles.empty },
-			React.createElement(RN.Text, { style: styles.emptyText }, "Play something on Spotify to light up your profile."),
+			SafeReact.createElement(SafeRN.Text, { style: styles.emptyText }, "Play something on Spotify to light up your profile."),
 		);
 	}
 
@@ -526,60 +540,60 @@ function SpotifyCard() {
 	const position = track.start ? Math.max(0, Math.min(duration, now - track.start)) : 0;
 	const progress = duration ? Math.min(100, Math.max(0, (position / duration) * 100)) : 0;
 	const colors = hashPalette(`${track.id ?? ""}${track.title}${track.artist}${track.art ?? ""}`);
-	const musicIcon = getAssetIDByName("MusicIcon") ?? getAssetIDByName("ic_spotify_white_16px");
+	const musicIcon = callMetro(getAssetIDByName, "MusicIcon") ?? callMetro(getAssetIDByName, "ic_spotify_white_16px");
 
-	return React.createElement(
-		RN.View,
+	return SafeReact.createElement(
+		SafeRN.View,
 		{ style: [styles.card, { backgroundColor: colors.dark, borderColor: colors.mid }] },
-		React.createElement(SpotifyProfileTheme, { colors }),
-		React.createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.92 }] }),
-		React.createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.7 }] }),
-		React.createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.78 }] }),
-		React.createElement(
-			RN.View,
+		SafeReact.createElement(SpotifyProfileTheme, { colors }),
+		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.92 }] }),
+		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.7 }] }),
+		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.78 }] }),
+		SafeReact.createElement(
+			SafeRN.View,
 			{ style: styles.content },
-			React.createElement(
-				RN.View,
+			SafeReact.createElement(
+				SafeRN.View,
 				{ style: styles.topRow },
-				React.createElement(
-					RN.View,
+				SafeReact.createElement(
+					SafeRN.View,
 					{ style: styles.artWrap },
 					track.art
-						? React.createElement(RN.Image, { source: { uri: track.art }, style: styles.art })
-						: React.createElement(
-							RN.View,
+						? SafeReact.createElement(SafeRN.Image, { source: { uri: track.art }, style: styles.art })
+						: SafeReact.createElement(
+							SafeRN.View,
 							{ style: styles.artFallback },
-							musicIcon && React.createElement(RN.Image, {
+							musicIcon && SafeReact.createElement(SafeRN.Image, {
 								source: musicIcon,
 								style: { width: 34, height: 34, tintColor: "#fff" },
 							}),
 						),
 				),
-				React.createElement(
-					RN.View,
+				SafeReact.createElement(
+					SafeRN.View,
 					{ style: styles.info },
-					React.createElement(RN.Text, { style: styles.eyebrow }, "Spotify live"),
-					React.createElement(RN.Text, { numberOfLines: 1, style: styles.title }, track.title),
-					React.createElement(RN.Text, { numberOfLines: 1, style: styles.artist }, track.artist),
+					SafeReact.createElement(SafeRN.Text, { style: styles.eyebrow }, "Spotify live"),
+					SafeReact.createElement(SafeRN.Text, { numberOfLines: 1, style: styles.title }, track.title),
+					SafeReact.createElement(SafeRN.Text, { numberOfLines: 1, style: styles.artist }, track.artist),
 				),
 			),
-			React.createElement(
-				RN.View,
+			SafeReact.createElement(
+				SafeRN.View,
 				null,
-				React.createElement(
-					RN.View,
+				SafeReact.createElement(
+					SafeRN.View,
 					{ style: styles.seekTrack },
-					React.createElement(RN.View, { style: [styles.seekFill, { width: `${progress}%` }] }),
+					SafeReact.createElement(SafeRN.View, { style: [styles.seekFill, { width: `${progress}%` }] }),
 				),
-				React.createElement(
-					RN.View,
+				SafeReact.createElement(
+					SafeRN.View,
 					{ style: styles.rowBetween },
-					React.createElement(RN.Text, { style: styles.time }, msToClock(position)),
-					React.createElement(RN.Text, { style: styles.time }, duration ? msToClock(duration) : "--:--"),
+					SafeReact.createElement(SafeRN.Text, { style: styles.time }, msToClock(position)),
+					SafeReact.createElement(SafeRN.Text, { style: styles.time }, duration ? msToClock(duration) : "--:--"),
 				),
 			),
-			React.createElement(QueueCard, { next, colors }),
-			React.createElement(LyricsBlock, { lyrics, position }),
+			SafeReact.createElement(QueueCard, { next, colors }),
+			SafeReact.createElement(LyricsBlock, { lyrics, position }),
 		),
 	);
 }
@@ -590,94 +604,110 @@ function ProfileMusicSection(props: { userId?: string; style?: any }) {
 	if (props.userId && selfId && props.userId !== selfId) return null;
 
 	if (UserProfileCard) {
-		return React.createElement(
+		return SafeReact.createElement(
 			UserProfileCard,
 			{ title: "Better Spotify RPC", style: props.style },
-			React.createElement(SpotifyCard),
+			SafeReact.createElement(SpotifyCard),
 		);
 	}
 	if (UserProfileSection) {
-		return React.createElement(
+		return SafeReact.createElement(
 			UserProfileSection,
 			{ title: "Better Spotify RPC" },
-			React.createElement(SpotifyCard),
+			SafeReact.createElement(SpotifyCard),
 		);
 	}
-	return React.createElement(SpotifyCard);
+	return SafeReact.createElement(SpotifyCard);
 }
 
 function patchProfileCard(component: any, variant: "you" | "simplified" | "bio") {
-	if (!component?.default) return undefined;
-	return after("default", component, (args: any[], ret: any) => {
+	if (!component?.default || typeof after !== "function") return undefined;
+	try {
+		return after("default", component, (args: any[], ret: any) => {
 		const props = args[0] ?? {};
 		const userId = props.userId ?? props.displayProfile?.userId;
 		const children = [
-			React.createElement(ProfileMusicSection, {
+			SafeReact.createElement(ProfileMusicSection, {
 				key: "better-spotify-rpc",
 				userId,
 				style: variant === "simplified" ? props.style : undefined,
 			}),
 			ret,
 		];
-		return React.createElement(React.Fragment, {}, children);
-	});
+		return SafeReact.createElement(SafeReact.Fragment, {}, children);
+		});
+	} catch {
+		return undefined;
+	}
 }
 
 let patches: (() => void)[] = [];
 
 export function onLoad() {
-	resolveModules();
-	vstorage.showLyrics ??= true;
-	vstorage.showQueue ??= true;
-	vstorage.overrideProfileTheme ??= true;
+	try {
+		resolveModules();
+		vstorage.showLyrics ??= true;
+		vstorage.showQueue ??= true;
+		vstorage.overrideProfileTheme ??= true;
 
-	patches = [
-		patchProfileCard(YouAboutMeCard, "you"),
-		patchProfileCard(SimplifiedUserProfileAboutMeCard, "simplified"),
-		patchProfileCard(UserProfileAboutMeCard, "simplified"),
-		patchProfileCard(UserProfileBio, "bio"),
-	].filter(Boolean) as (() => void)[];
+		patches = [
+			patchProfileCard(YouAboutMeCard, "you"),
+			patchProfileCard(SimplifiedUserProfileAboutMeCard, "simplified"),
+			patchProfileCard(UserProfileAboutMeCard, "simplified"),
+			patchProfileCard(UserProfileBio, "bio"),
+		].filter((unpatch): unpatch is () => void => typeof unpatch === "function");
+	} catch {
+		patches = [];
+	}
 }
 
 export function onUnload() {
-	patches.forEach(unpatch => unpatch());
+	patches.forEach(unpatch => {
+		try {
+			if (typeof unpatch === "function") unpatch();
+		} catch {}
+	});
 	patches = [];
 }
 
 export function settings() {
-	resolveModules();
-	if (!TableRowGroup || !TableSwitchRow) {
-		return React.createElement(
-			RN.View,
+	try {
+		resolveModules();
+		if (!TableRowGroup || !TableSwitchRow) {
+			return SafeReact.createElement(
+			SafeRN.View,
 			{ style: { padding: 16 } },
-			React.createElement(RN.Text, { style: { color: semanticColors.TEXT_NORMAL } }, "Better Spotify RPC is enabled."),
-		);
-	}
+			SafeReact.createElement(SafeRN.Text, { style: { color: color.textNormal } }, "Better Spotify RPC is enabled."),
+			);
+		}
 
-	return React.createElement(
+		return SafeReact.createElement(
 		TableRowGroup,
 		{ title: "Better Spotify RPC" },
-		React.createElement(TableSwitchRow, {
+		SafeReact.createElement(TableSwitchRow, {
 			label: "Album-art profile theme",
 			subLabel: "Tint your profile card around the current Spotify cover.",
 			value: vstorage.overrideProfileTheme,
 			onValueChange: (value: boolean) => (vstorage.overrideProfileTheme = value),
 		}),
-		React.createElement(TableSwitchRow, {
+		SafeReact.createElement(TableSwitchRow, {
 			label: "Up next card",
 			subLabel: "Show the next Spotify queue item when Discord exposes it.",
 			value: vstorage.showQueue,
 			onValueChange: (value: boolean) => (vstorage.showQueue = value),
 		}),
-		React.createElement(TableSwitchRow, {
+		SafeReact.createElement(TableSwitchRow, {
 			label: "Synced lyrics",
 			subLabel: "Fetch synced lines from LRCLIB for the current track.",
 			value: vstorage.showLyrics,
 			onValueChange: (value: boolean) => (vstorage.showLyrics = value),
 		}),
-		TableRow && React.createElement(TableRow, {
+		TableRow && SafeReact.createElement(TableRow, {
 			label: "Spotify support",
 			subLabel: "This first build intentionally reads Spotify only.",
 		}),
-	);
+		);
+	} catch {
+		return null;
+	}
 }
