@@ -44,20 +44,43 @@ type PluginStorage = {
 };
 
 const vstorage = storage as PluginStorage;
-const SpotifyStore = findByStoreName("SpotifyStore");
-const UserStore = findByStoreName("UserStore");
-const { TableRow, TableSwitchRow, TableRowGroup } = findByProps(
-	"TableRow",
-	"TableSwitchRow",
-	"TableRowGroup",
-) ?? {};
+let SpotifyStore: any;
+let UserStore: any;
+let TableRow: any;
+let TableSwitchRow: any;
+let TableRowGroup: any;
+let UserProfileAboutMeCard: any;
+let SimplifiedUserProfileAboutMeCard: any;
+let YouAboutMeCard: any;
+let UserProfileBio: any;
+let UserProfileCard: any;
+let UserProfileSection: any;
 
-const UserProfileAboutMeCard = findByName("UserProfileAboutMeCard", false);
-const SimplifiedUserProfileAboutMeCard = findByName("SimplifiedUserProfileAboutMeCard", false);
-const YouAboutMeCard = findByName("YouAboutMeCard", false);
-const UserProfileBio = findByName("UserProfileBio", false);
-const UserProfileCard = findByName("UserProfileCard", false);
-const UserProfileSection = findByName("UserProfileSection", false);
+function callMetro<T>(fn: unknown, ...args: any[]): T | undefined {
+	if (typeof fn !== "function") return undefined;
+	try {
+		return fn(...args) as T;
+	} catch {
+		return undefined;
+	}
+}
+
+function resolveModules() {
+	SpotifyStore ??= callMetro(findByStoreName, "SpotifyStore");
+	UserStore ??= callMetro(findByStoreName, "UserStore");
+
+	const table = callMetro<any>(findByProps, "TableRow", "TableSwitchRow", "TableRowGroup");
+	TableRow ??= table?.TableRow;
+	TableSwitchRow ??= table?.TableSwitchRow;
+	TableRowGroup ??= table?.TableRowGroup;
+
+	UserProfileAboutMeCard ??= callMetro(findByName, "UserProfileAboutMeCard", false);
+	SimplifiedUserProfileAboutMeCard ??= callMetro(findByName, "SimplifiedUserProfileAboutMeCard", false);
+	YouAboutMeCard ??= callMetro(findByName, "YouAboutMeCard", false);
+	UserProfileBio ??= callMetro(findByName, "UserProfileBio", false);
+	UserProfileCard ??= callMetro(findByName, "UserProfileCard", false);
+	UserProfileSection ??= callMetro(findByName, "UserProfileSection", false);
+}
 
 const flexCenter = {
 	alignItems: "center",
@@ -259,6 +282,7 @@ function normalizeAlbumArt(raw?: string) {
 }
 
 function getCurrentTrack(): Track | null {
+	resolveModules();
 	const activity = SpotifyStore?.getActivity?.() as Activity | undefined;
 	if (!activity?.details) return null;
 
@@ -299,6 +323,7 @@ function trackFromUnknown(value: any): Track | null {
 }
 
 function getNextTrack(): Track | null {
+	resolveModules();
 	const state = SpotifyStore?.getPlayerState?.()
 		?? SpotifyStore?.getState?.()
 		?? SpotifyStore?.getActiveSocketAndDevice?.()?.socket?.state;
@@ -560,6 +585,7 @@ function SpotifyCard() {
 }
 
 function ProfileMusicSection(props: { userId?: string; style?: any }) {
+	resolveModules();
 	const selfId = UserStore?.getCurrentUser?.()?.id;
 	if (props.userId && selfId && props.userId !== selfId) return null;
 
@@ -600,6 +626,7 @@ function patchProfileCard(component: any, variant: "you" | "simplified" | "bio")
 let patches: (() => void)[] = [];
 
 export function onLoad() {
+	resolveModules();
 	vstorage.showLyrics ??= true;
 	vstorage.showQueue ??= true;
 	vstorage.overrideProfileTheme ??= true;
@@ -618,6 +645,7 @@ export function onUnload() {
 }
 
 export function settings() {
+	resolveModules();
 	if (!TableRowGroup || !TableSwitchRow) {
 		return React.createElement(
 			RN.View,
