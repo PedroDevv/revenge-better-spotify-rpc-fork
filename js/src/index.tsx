@@ -1,4 +1,4 @@
-import { findByName, findByProps, findByStoreName } from "@vendetta/metro";
+import { find, findByName, findByProps, findByStoreName } from "@vendetta/metro";
 import { FluxDispatcher, React, ReactNative as RN, stylesheet } from "@vendetta/metro/common";
 import { after } from "@vendetta/patcher";
 import { storage } from "@vendetta/plugin";
@@ -41,9 +41,11 @@ type PluginStorage = {
 	showLyrics?: boolean;
 	showQueue?: boolean;
 	overrideProfileTheme?: boolean;
+	debugStatus?: boolean;
 };
 
 const vstorage = storage as PluginStorage;
+const vendettaGlobal = (globalThis as any).vendetta ?? {};
 const fallbackReact = {
 	Fragment: undefined,
 	createElement: () => null,
@@ -70,37 +72,113 @@ let YouAboutMeCard: any;
 let UserProfileBio: any;
 let UserProfileCard: any;
 let UserProfileSection: any;
+let YouScreenProfileCard: any;
+let TableRowGroupTitle: any;
+let lastStatus = "Not initialized";
 
-function callMetro<T>(fn: unknown, ...args: any[]): T | undefined {
-	if (typeof fn !== "function") return undefined;
+function callable(value: unknown): ((...args: any[]) => any) | undefined {
+	if (typeof value === "function") return value as (...args: any[]) => any;
+	if (typeof (value as any)?.default === "function") return (value as any).default;
+	if (typeof (value as any)?.__call === "function") return (value as any).__call;
+	return undefined;
+}
+
+function callAny<T>(fn: unknown, ...args: any[]): T | undefined {
+	const run = callable(fn);
+	if (!run) return undefined;
 	try {
-		return fn(...args) as T;
+		return run(...args) as T;
 	} catch {
 		return undefined;
 	}
 }
 
+function firstCall<T>(fns: unknown[], ...args: any[]): T | undefined {
+	for (const fn of fns) {
+		const result = callAny<T>(fn, ...args);
+		if (result) return result;
+	}
+	return undefined;
+}
+
+function metroFind<T>(filter: (module: any) => boolean): T | undefined {
+	return firstCall<T>([
+		find,
+		vendettaGlobal.metro?.find,
+		vendettaGlobal.metro?.default?.find,
+	], filter);
+}
+
+function metroFindByProps<T>(...props: string[]): T | undefined {
+	return firstCall<T>([
+		findByProps,
+		vendettaGlobal.metro?.findByProps,
+		vendettaGlobal.metro?.default?.findByProps,
+	], ...props);
+}
+
+function metroFindByName<T>(name: string, defaultExp = true): T | undefined {
+	return firstCall<T>([
+		findByName,
+		vendettaGlobal.metro?.findByName,
+		vendettaGlobal.metro?.default?.findByName,
+	], name, defaultExp);
+}
+
+function metroFindByStoreName<T>(name: string): T | undefined {
+	return firstCall<T>([
+		findByStoreName,
+		vendettaGlobal.metro?.findByStoreName,
+		vendettaGlobal.metro?.default?.findByStoreName,
+	], name);
+}
+
 function resolveModules() {
-	SafeReact = (SafeReact?.createElement !== fallbackReact.createElement
+	SafeReact = ((SafeReact as any)?.createElement !== fallbackReact.createElement
 		? SafeReact
-		: callMetro<any>(findByProps, "createElement", "useState")
-			?? callMetro<any>(findByProps, "createElement", "Component")
+		: React
+			?? vendettaGlobal.metro?.common?.React
+			?? metroFindByProps<any>("createElement", "useState")
+			?? metroFindByProps<any>("createElement", "Component")
+			?? metroFind<any>(module => module?.createElement && module?.useState)
 			?? fallbackReact) as typeof React;
+	SafeRN = SafeRN?.View
+		? SafeRN
+		: RN
+			?? vendettaGlobal.metro?.common?.ReactNative
+			?? metroFindByProps<any>("View", "Text", "Image")
+			?? {};
 
-	SpotifyStore ??= callMetro(findByStoreName, "SpotifyStore");
-	UserStore ??= callMetro(findByStoreName, "UserStore");
+	SpotifyStore ??= metroFindByStoreName("SpotifyStore");
+	UserStore ??= metroFindByStoreName("UserStore");
 
-	const table = callMetro<any>(findByProps, "TableRow", "TableSwitchRow", "TableRowGroup");
+	const table = metroFindByProps<any>("TableRow", "TableSwitchRow", "TableRowGroup");
 	TableRow ??= table?.TableRow;
 	TableSwitchRow ??= table?.TableSwitchRow;
 	TableRowGroup ??= table?.TableRowGroup;
+	TableRowGroupTitle ??= table?.TableRowGroupTitle;
 
-	UserProfileAboutMeCard ??= callMetro(findByName, "UserProfileAboutMeCard", false);
-	SimplifiedUserProfileAboutMeCard ??= callMetro(findByName, "SimplifiedUserProfileAboutMeCard", false);
-	YouAboutMeCard ??= callMetro(findByName, "YouAboutMeCard", false);
-	UserProfileBio ??= callMetro(findByName, "UserProfileBio", false);
-	UserProfileCard ??= callMetro(findByName, "UserProfileCard", false);
-	UserProfileSection ??= callMetro(findByName, "UserProfileSection", false);
+	YouScreenProfileCard ??= metroFindByProps<any>("YouScreenProfileCard")?.YouScreenProfileCard;
+	UserProfileAboutMeCard ??= metroFindByName("UserProfileAboutMeCard", false);
+	SimplifiedUserProfileAboutMeCard ??= metroFindByName("SimplifiedUserProfileAboutMeCard", false);
+	YouAboutMeCard ??= metroFindByName("YouAboutMeCard", false);
+	UserProfileBio ??= metroFindByName("UserProfileBio", false);
+	UserProfileCard ??= metroFindByName("UserProfileCard", false);
+	UserProfileSection ??= metroFindByName("UserProfileSection", false);
+
+	lastStatus = [
+		`React:${(SafeReact as any)?.createElement === fallbackReact.createElement ? "missing" : "ok"}`,
+		`RN:${SafeRN?.View ? "ok" : "missing"}`,
+		`Spotify:${SpotifyStore ? "ok" : "missing"}`,
+		`User:${UserStore ? "ok" : "missing"}`,
+		`Settings:${TableRowGroup && TableSwitchRow ? "ok" : "fallback"}`,
+		`Profile:${[
+			YouAboutMeCard,
+			UserProfileAboutMeCard,
+			SimplifiedUserProfileAboutMeCard,
+			UserProfileBio,
+		].filter(Boolean).length}`,
+	].join(" | ");
 }
 
 const flexCenter = {
@@ -291,6 +369,35 @@ const styles = createStyles({
 		color: color.textMuted,
 		fontSize: 13,
 		fontWeight: "600",
+	},
+	settingsWrap: {
+		padding: 16,
+		gap: 12,
+	},
+	settingsTitle: {
+		color: color.textNormal,
+		fontSize: 18,
+		fontWeight: "800",
+	},
+	settingsText: {
+		color: color.textMuted,
+		fontSize: 13,
+		fontWeight: "600",
+	},
+	settingsRow: {
+		paddingVertical: 12,
+		borderBottomWidth: 1,
+		borderBottomColor: color.borderSubtle,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		gap: 12,
+	},
+	settingsLabel: {
+		color: color.textNormal,
+		fontSize: 15,
+		fontWeight: "700",
+		flex: 1,
 	},
 });
 
@@ -547,7 +654,7 @@ function SpotifyCard() {
 	const position = track.start ? Math.max(0, Math.min(duration, now - track.start)) : 0;
 	const progress = duration ? Math.min(100, Math.max(0, (position / duration) * 100)) : 0;
 	const colors = hashPalette(`${track.id ?? ""}${track.title}${track.artist}${track.art ?? ""}`);
-	const musicIcon = callMetro(getAssetIDByName, "MusicIcon") ?? callMetro(getAssetIDByName, "ic_spotify_white_16px");
+	const musicIcon = callAny(getAssetIDByName, "MusicIcon") ?? callAny(getAssetIDByName, "ic_spotify_white_16px");
 
 	return SafeReact.createElement(
 		SafeRN.View,
@@ -605,11 +712,19 @@ function SpotifyCard() {
 	);
 }
 
-function ProfileMusicSection(props: { userId?: string; style?: any }) {
+function ProfileMusicSection(props: { userId?: string; style?: any; variant?: "you" | "simplified" | "bio" }) {
 	resolveModules();
 	const selfId = UserStore?.getCurrentUser?.()?.id;
 	if (props.userId && selfId && props.userId !== selfId) return null;
 
+	if (props.variant === "you" && YouScreenProfileCard) {
+		return SafeReact.createElement(
+			YouScreenProfileCard,
+			{ style: { minHeight: 180 } },
+			TableRowGroupTitle && SafeReact.createElement(TableRowGroupTitle, { title: "Better Spotify RPC" }),
+			SafeReact.createElement(SpotifyCard),
+		);
+	}
 	if (UserProfileCard) {
 		return SafeReact.createElement(
 			UserProfileCard,
@@ -628,15 +743,17 @@ function ProfileMusicSection(props: { userId?: string; style?: any }) {
 }
 
 function patchProfileCard(component: any, variant: "you" | "simplified" | "bio") {
-	if (!component?.default || typeof after !== "function") return undefined;
+	const patchAfter = callable(after);
+	if (!component?.default || !patchAfter) return undefined;
 	try {
-		return after("default", component, (args: any[], ret: any) => {
+		return patchAfter("default", component, (args: any[], ret: any) => {
 		const props = args[0] ?? {};
 		const userId = props.userId ?? props.displayProfile?.userId;
 		const children = [
 			SafeReact.createElement(ProfileMusicSection, {
 				key: "better-spotify-rpc",
 				userId,
+				variant,
 				style: variant === "simplified" ? props.style : undefined,
 			}),
 			ret,
@@ -646,6 +763,53 @@ function patchProfileCard(component: any, variant: "you" | "simplified" | "bio")
 	} catch {
 		return undefined;
 	}
+}
+
+function SimpleSettingsRow({
+	label,
+	value,
+	onValueChange,
+}: {
+	label: string;
+	value?: boolean;
+	onValueChange: (value: boolean) => void;
+}) {
+	return SafeReact.createElement(
+		SafeRN.View,
+		{ style: styles.settingsRow },
+		SafeReact.createElement(SafeRN.Text, { style: styles.settingsLabel }, label),
+		SafeRN.Switch
+			? SafeReact.createElement(SafeRN.Switch, {
+				value: !!value,
+				onValueChange,
+			})
+			: SafeReact.createElement(SafeRN.Text, { style: styles.settingsText }, value ? "On" : "Off"),
+	);
+}
+
+function SimpleSettings() {
+	const Container = SafeRN.ScrollView ?? SafeRN.View;
+	return SafeReact.createElement(
+		Container,
+		{ style: styles.settingsWrap },
+		SafeReact.createElement(SafeRN.Text, { style: styles.settingsTitle }, "Better Spotify RPC"),
+		SafeReact.createElement(SafeRN.Text, { style: styles.settingsText }, lastStatus),
+		SafeReact.createElement(SimpleSettingsRow, {
+			label: "Album-art profile theme",
+			value: vstorage.overrideProfileTheme,
+			onValueChange: (value: boolean) => (vstorage.overrideProfileTheme = value),
+		}),
+		SafeReact.createElement(SimpleSettingsRow, {
+			label: "Up next card",
+			value: vstorage.showQueue,
+			onValueChange: (value: boolean) => (vstorage.showQueue = value),
+		}),
+		SafeReact.createElement(SimpleSettingsRow, {
+			label: "Synced lyrics",
+			value: vstorage.showLyrics,
+			onValueChange: (value: boolean) => (vstorage.showLyrics = value),
+		}),
+	);
 }
 
 let patches: (() => void)[] = [];
@@ -663,6 +827,7 @@ export function onLoad() {
 			patchProfileCard(UserProfileAboutMeCard, "simplified"),
 			patchProfileCard(UserProfileBio, "bio"),
 		].filter((unpatch): unpatch is () => void => typeof unpatch === "function");
+		lastStatus = `${lastStatus} | Patches:${patches.length}`;
 	} catch {
 		patches = [];
 	}
@@ -681,16 +846,18 @@ export function settings() {
 	try {
 		resolveModules();
 		if (!TableRowGroup || !TableSwitchRow) {
-			return SafeReact.createElement(
-			SafeRN.View,
-			{ style: { padding: 16 } },
-			SafeReact.createElement(SafeRN.Text, { style: { color: color.textNormal } }, "Better Spotify RPC is enabled."),
-			);
+			return (SafeReact as any)?.createElement === fallbackReact.createElement
+				? null
+				: SafeReact.createElement(SimpleSettings);
 		}
 
 		return SafeReact.createElement(
 		TableRowGroup,
 		{ title: "Better Spotify RPC" },
+		TableRow && SafeReact.createElement(TableRow, {
+			label: "Status",
+			subLabel: lastStatus,
+		}),
 		SafeReact.createElement(TableSwitchRow, {
 			label: "Album-art profile theme",
 			subLabel: "Tint your profile card around the current Spotify cover.",

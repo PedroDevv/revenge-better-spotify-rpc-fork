@@ -1,4 +1,5 @@
 declare module "@vendetta/metro" {
+	export const find: any;
 	export const findByName: any;
 	export const findByProps: any;
 	export const findByStoreName: any;
