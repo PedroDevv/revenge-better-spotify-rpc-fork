@@ -45,13 +45,14 @@ type PluginStorage = {
 
 const vstorage = storage as PluginStorage;
 const fallbackReact = {
-	createElement: (type: any, props?: any, ...children: any[]) => ({ type, props: { ...props, children } }),
+	Fragment: undefined,
+	createElement: () => null,
 	useEffect: () => undefined,
 	useMemo: (factory: any) => factory(),
 	useState: (initial: any) => [initial, () => undefined],
 };
-const SafeReact = (React?.createElement ? React : fallbackReact) as typeof React;
-const SafeRN = RN ?? {};
+let SafeReact = (React?.createElement ? React : fallbackReact) as typeof React;
+let SafeRN = RN ?? {};
 const color = {
 	backgroundSecondary: semanticColors?.BACKGROUND_SECONDARY ?? "#202225",
 	borderSubtle: semanticColors?.BORDER_SUBTLE ?? "rgba(255,255,255,0.12)",
@@ -80,6 +81,12 @@ function callMetro<T>(fn: unknown, ...args: any[]): T | undefined {
 }
 
 function resolveModules() {
+	SafeReact = (SafeReact?.createElement !== fallbackReact.createElement
+		? SafeReact
+		: callMetro<any>(findByProps, "createElement", "useState")
+			?? callMetro<any>(findByProps, "createElement", "Component")
+			?? fallbackReact) as typeof React;
+
 	SpotifyStore ??= callMetro(findByStoreName, "SpotifyStore");
 	UserStore ??= callMetro(findByStoreName, "UserStore");
 
