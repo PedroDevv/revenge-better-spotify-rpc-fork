@@ -58,6 +58,42 @@ const createStyles =
 			? RN.StyleSheet.create.bind(RN.StyleSheet)
 			: (input: any) => input;
 
+function getReact() {
+	return React?.createElement
+		? React
+		: (globalThis as any).React?.createElement
+			? (globalThis as any).React
+			: safe<any>("React", () => findByProps("createElement", "useState"))
+				?? safe<any>("React", () => findByProps("createElement", "Component"));
+}
+
+function createElement(type: any, props?: any, ...children: any[]) {
+	const react = getReact();
+	if (typeof react?.createElement !== "function" || !type) return null;
+	return react.createElement(type, props, ...children);
+}
+
+function reactFragment() {
+	return getReact()?.Fragment ?? RN.View;
+}
+
+function useSafeState<T>(initial: T): [T, (value: T | ((previous: T) => T)) => void] {
+	const react = getReact();
+	return typeof react?.useState === "function"
+		? react.useState(initial)
+		: [initial, () => undefined];
+}
+
+function useSafeEffect(effect: () => void | (() => void), deps: any[]) {
+	const react = getReact();
+	return typeof react?.useEffect === "function" ? react.useEffect(effect, deps) : undefined;
+}
+
+function useSafeMemo<T>(factory: () => T, deps: any[]): T {
+	const react = getReact();
+	return typeof react?.useMemo === "function" ? react.useMemo(factory, deps) : factory();
+}
+
 const styles = createStyles({
 	card: {
 		overflow: "hidden",
