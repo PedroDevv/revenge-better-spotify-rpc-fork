@@ -2,7 +2,6 @@ import { findByName, findByProps, findByStoreName } from "@vendetta/metro";
 import { FluxDispatcher, React, ReactNative as RN, stylesheet } from "@vendetta/metro/common";
 import { after } from "@vendetta/patcher";
 import { storage } from "@vendetta/plugin";
-import { useProxy } from "@vendetta/storage";
 import { semanticColors } from "@vendetta/ui";
 import { getAssetIDByName } from "@vendetta/ui/assets";
 import { Forms } from "@vendetta/ui/components";
@@ -697,12 +696,7 @@ export function onUnload() {
 }
 
 function Settings() {
-	useProxy?.(vstorage);
-	const [, forceUpdate] = React.useState(0);
-	const refresh = () => {
-		resolveModules();
-		forceUpdate((value: number) => value + 1);
-	};
+	resolveModules();
 
 	if (!FormSection || !FormSwitchRow || !FormRow || !FormText) {
 		return React.createElement(
@@ -711,10 +705,7 @@ function Settings() {
 			React.createElement(RN.Text, { style: styles.settingsText }, lastStatus),
 			React.createElement(RN.Switch, {
 				value: !!vstorage.debugAlwaysShow,
-				onValueChange: (value: boolean) => {
-					vstorage.debugAlwaysShow = value;
-					forceUpdate((count: number) => count + 1);
-				},
+				onValueChange: (value: boolean) => (vstorage.debugAlwaysShow = value),
 			}),
 		);
 	}
@@ -749,11 +740,6 @@ function Settings() {
 				subLabel: "Show the panel on your profile even when Spotify is not detected.",
 				value: !!vstorage.debugAlwaysShow,
 				onValueChange: (value: boolean) => (vstorage.debugAlwaysShow = value),
-			}),
-			React.createElement(FormRow, {
-				label: "Refresh status",
-				subLabel: "Re-scan Discord modules and update the status line.",
-				onPress: refresh,
 			}),
 		),
 	);
