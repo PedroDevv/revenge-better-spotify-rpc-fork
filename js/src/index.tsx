@@ -411,9 +411,9 @@ function parseSyncedLyrics(raw?: string): LyricLine[] {
 }
 
 function useSpotifySnapshot() {
-	const [tick, setTick] = React.useState(0);
+	const [tick, setTick] = useSafeState(0);
 
-	React.useEffect(() => {
+	useSafeEffect(() => {
 		const update = () => setTick((value: number) => value + 1);
 		const interval = setInterval(update, 1000);
 		const eventNames = [
@@ -437,7 +437,7 @@ function useSpotifySnapshot() {
 		};
 	}, []);
 
-	return React.useMemo(() => ({
+	return useSafeMemo(() => ({
 		track: getCurrentTrack(),
 		next: getNextTrack(),
 		tick,
@@ -445,9 +445,9 @@ function useSpotifySnapshot() {
 }
 
 function useSyncedLyrics(track: Track | null) {
-	const [lyrics, setLyrics] = React.useState([] as LyricLine[]);
+	const [lyrics, setLyrics] = useSafeState([] as LyricLine[]);
 
-	React.useEffect(() => {
+	useSafeEffect(() => {
 		if (!vstorage.showLyrics || !track?.title || !track.artist) {
 			setLyrics([]);
 			return;
@@ -486,11 +486,11 @@ function LyricsBlock({ lyrics, position }: { lyrics: LyricLine[]; position: numb
 	);
 	const visible = lyrics.slice(Math.max(0, active - 1), active + 3);
 
-	return React.createElement(
+	return createElement(
 		RN.View,
 		{ style: styles.lyrics },
 		visible.map(line =>
-			React.createElement(
+			createElement(
 				RN.Text,
 				{
 					key: `${line.time}-${line.text}`,
@@ -509,17 +509,17 @@ function LyricsBlock({ lyrics, position }: { lyrics: LyricLine[]; position: numb
 function QueueCard({ next, colors }: { next: Track | null; colors: ReturnType<typeof hashPalette> }) {
 	if (!vstorage.showQueue) return null;
 
-	return React.createElement(
+	return createElement(
 		RN.View,
 		{ style: [styles.queueCard, { backgroundColor: colors.dark }] },
-		next?.art && React.createElement(RN.Image, { source: { uri: next.art }, style: styles.queueArt }),
-		React.createElement(RN.Text, { style: styles.queueTitle }, "Up next"),
-		React.createElement(
+		next?.art && createElement(RN.Image, { source: { uri: next.art }, style: styles.queueArt }),
+		createElement(RN.Text, { style: styles.queueTitle }, "Up next"),
+		createElement(
 			RN.Text,
 			{ numberOfLines: 1, style: styles.queueSong },
 			next?.title ?? "Queue hidden by Discord",
 		),
-		React.createElement(
+		createElement(
 			RN.Text,
 			{ numberOfLines: 1, style: styles.queueArtist },
 			next?.artist ?? "Discord did not expose the next queue item.",
@@ -533,10 +533,10 @@ function SpotifyCard() {
 
 	if (!track) {
 		if (!vstorage.debugAlwaysShow) return null;
-		return React.createElement(
+		return createElement(
 			RN.View,
 			{ style: styles.empty },
-			React.createElement(RN.Text, { style: styles.emptyText }, `No Spotify track detected. ${lastStatus}`),
+			createElement(RN.Text, { style: styles.emptyText }, `No Spotify track detected. ${lastStatus}`),
 		);
 	}
 
@@ -547,63 +547,63 @@ function SpotifyCard() {
 	const colors = hashPalette(`${track.id ?? ""}${track.title}${track.artist}${track.art ?? ""}`);
 	const musicIcon = getAssetIDByName("MusicIcon") ?? getAssetIDByName("ic_spotify_white_16px");
 
-	return React.createElement(
+	return createElement(
 		RN.View,
 		{ style: [styles.card, { backgroundColor: colors.dark, borderColor: colors.mid }] },
-		vstorage.overrideProfileTheme && React.createElement(
+		vstorage.overrideProfileTheme && createElement(
 			RN.View,
 			{
 				pointerEvents: "none",
 				style: [styles.themeWash, { backgroundColor: colors.dark }],
 			},
-			React.createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.9 }] }),
-			React.createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.72 }] }),
-			React.createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.8 }] }),
+			createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.9 }] }),
+			createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.72 }] }),
+			createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.8 }] }),
 		),
-		React.createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.92 }] }),
-		React.createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.7 }] }),
-		React.createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.78 }] }),
-		React.createElement(
+		createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.92 }] }),
+		createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.7 }] }),
+		createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.78 }] }),
+		createElement(
 			RN.View,
 			{ style: styles.content },
-			React.createElement(
+			createElement(
 				RN.View,
 				{ style: styles.topRow },
-				React.createElement(
+				createElement(
 					RN.View,
 					{ style: styles.artWrap },
 					track.art
-						? React.createElement(RN.Image, { source: { uri: track.art }, style: styles.art })
-						: musicIcon && React.createElement(RN.Image, {
+						? createElement(RN.Image, { source: { uri: track.art }, style: styles.art })
+						: musicIcon && createElement(RN.Image, {
 							source: musicIcon,
 							style: { width: 34, height: 34, tintColor: "#fff" },
 						}),
 				),
-				React.createElement(
+				createElement(
 					RN.View,
 					{ style: styles.info },
-					React.createElement(RN.Text, { style: styles.eyebrow }, "Spotify live"),
-					React.createElement(RN.Text, { numberOfLines: 1, style: styles.title }, track.title),
-					React.createElement(RN.Text, { numberOfLines: 1, style: styles.artist }, track.artist),
+					createElement(RN.Text, { style: styles.eyebrow }, "Spotify live"),
+					createElement(RN.Text, { numberOfLines: 1, style: styles.title }, track.title),
+					createElement(RN.Text, { numberOfLines: 1, style: styles.artist }, track.artist),
 				),
 			),
-			React.createElement(
+			createElement(
 				RN.View,
 				null,
-				React.createElement(
+				createElement(
 					RN.View,
 					{ style: styles.seekTrack },
-					React.createElement(RN.View, { style: [styles.seekFill, { width: `${progress}%` }] }),
+					createElement(RN.View, { style: [styles.seekFill, { width: `${progress}%` }] }),
 				),
-				React.createElement(
+				createElement(
 					RN.View,
 					{ style: styles.rowBetween },
-					React.createElement(RN.Text, { style: styles.time }, msToClock(position)),
-					React.createElement(RN.Text, { style: styles.time }, duration ? msToClock(duration) : "--:--"),
+					createElement(RN.Text, { style: styles.time }, msToClock(position)),
+					createElement(RN.Text, { style: styles.time }, duration ? msToClock(duration) : "--:--"),
 				),
 			),
-			React.createElement(QueueCard, { next, colors }),
-			React.createElement(LyricsBlock, { lyrics, position }),
+			createElement(QueueCard, { next, colors }),
+			createElement(LyricsBlock, { lyrics, position }),
 		),
 	);
 }
@@ -621,20 +621,20 @@ function ProfileMusicSection({
 	const selfId = UserStore?.getCurrentUser?.()?.id;
 	if (userId && selfId && userId !== selfId) return null;
 
-	const card = React.createElement(SpotifyCard);
+	const card = createElement(SpotifyCard);
 	if (!card && !vstorage.debugAlwaysShow) return null;
 
 	if (variant === "you" && YouScreenProfileCard) {
-		return React.createElement(
+		return createElement(
 			YouScreenProfileCard,
 			{ style: { minHeight: 180 } },
-			TableRowGroupTitle && React.createElement(TableRowGroupTitle, { title: "Better Spotify RPC" }),
+			TableRowGroupTitle && createElement(TableRowGroupTitle, { title: "Better Spotify RPC" }),
 			card,
 		);
 	}
 
 	if (variant === "simplified" && SimplifiedUserProfileCard) {
-		return React.createElement(
+		return createElement(
 			SimplifiedUserProfileCard,
 			{ title: "Better Spotify RPC", style },
 			card,
@@ -642,7 +642,7 @@ function ProfileMusicSection({
 	}
 
 	if (UserProfileCard) {
-		return React.createElement(
+		return createElement(
 			UserProfileCard,
 			{ title: "Better Spotify RPC", style },
 			card,
@@ -650,7 +650,7 @@ function ProfileMusicSection({
 	}
 
 	if (UserProfileSection) {
-		return React.createElement(
+		return createElement(
 			UserProfileSection,
 			{ title: "Better Spotify RPC", style },
 			card,
@@ -666,7 +666,7 @@ function patchProfileCard(component: any, variant: "you" | "simplified" | "class
 		const props = args[0] ?? {};
 		const userId = props.userId ?? props.displayProfile?.userId;
 		const children = [
-			React.createElement(ProfileMusicSection, {
+			createElement(ProfileMusicSection, {
 				key: "better-spotify-rpc",
 				userId,
 				variant,
@@ -674,7 +674,7 @@ function patchProfileCard(component: any, variant: "you" | "simplified" | "class
 			}),
 			ret,
 		];
-		return React.createElement(React.Fragment, {}, children);
+		return createElement(reactFragment(), {}, children);
 	});
 }
 
@@ -695,8 +695,8 @@ function applyProfilePatches() {
 		UserProfileBio?.default
 			? after("default", UserProfileBio, ([{ displayProfile }]: any[], ret: any) =>
 				displayProfile
-					? React.createElement(React.Fragment, {}, [
-						React.createElement(ProfileMusicSection, {
+					? createElement(reactFragment(), {}, [
+						createElement(ProfileMusicSection, {
 							key: "better-spotify-rpc",
 							userId: displayProfile.userId,
 							variant: "classic",
@@ -735,43 +735,43 @@ function Settings() {
 	resolveModules();
 
 	if (!FormSection || !FormSwitchRow || !FormRow || !FormText) {
-		return React.createElement(
+		return createElement(
 			RN.ScrollView,
 			{ style: styles.settingsWrap },
-			React.createElement(RN.Text, { style: styles.settingsText }, lastStatus),
-			React.createElement(RN.Switch, {
+			createElement(RN.Text, { style: styles.settingsText }, lastStatus),
+			createElement(RN.Switch, {
 				value: !!vstorage.debugAlwaysShow,
 				onValueChange: (value: boolean) => (vstorage.debugAlwaysShow = value),
 			}),
 		);
 	}
 
-	return React.createElement(
+	return createElement(
 		RN.ScrollView,
 		null,
-		React.createElement(
+		createElement(
 			FormSection,
 			{ title: "Better Spotify RPC" },
-			React.createElement(FormText, null, lastStatus),
-			React.createElement(FormSwitchRow, {
+			createElement(FormText, null, lastStatus),
+			createElement(FormSwitchRow, {
 				label: "Album-art profile theme",
 				subLabel: "Tint the panel around the current Spotify track.",
 				value: !!vstorage.overrideProfileTheme,
 				onValueChange: (value: boolean) => (vstorage.overrideProfileTheme = value),
 			}),
-			React.createElement(FormSwitchRow, {
+			createElement(FormSwitchRow, {
 				label: "Up next card",
 				subLabel: "Show queue info if Discord exposes it.",
 				value: !!vstorage.showQueue,
 				onValueChange: (value: boolean) => (vstorage.showQueue = value),
 			}),
-			React.createElement(FormSwitchRow, {
+			createElement(FormSwitchRow, {
 				label: "Synced lyrics",
 				subLabel: "Fetch synced lyrics from LRCLIB when available.",
 				value: !!vstorage.showLyrics,
 				onValueChange: (value: boolean) => (vstorage.showLyrics = value),
 			}),
-			React.createElement(FormSwitchRow, {
+			createElement(FormSwitchRow, {
 				label: "Debug placeholder",
 				subLabel: "Show the panel on your profile even when Spotify is not detected.",
 				value: !!vstorage.debugAlwaysShow,
