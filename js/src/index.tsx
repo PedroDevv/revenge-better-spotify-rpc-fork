@@ -51,20 +51,41 @@ let SimplifiedUserProfileCard: any;
 let TableRowGroupTitle: any;
 let lastStatus = "Not loaded yet";
 
+function runtimeGlobal() {
+	const root = globalThis as any;
+	return root.window ?? root;
+}
+
 const createStyles =
 	typeof stylesheet?.createThemedStyleSheet === "function"
 		? stylesheet.createThemedStyleSheet.bind(stylesheet)
-		: typeof RN.StyleSheet?.create === "function"
-			? RN.StyleSheet.create.bind(RN.StyleSheet)
+		: typeof getRN().StyleSheet?.create === "function"
+			? getRN().StyleSheet.create.bind(getRN().StyleSheet)
 			: (input: any) => input;
 
 function getReact() {
+	const root = runtimeGlobal();
 	return React?.createElement
 		? React
-		: (globalThis as any).React?.createElement
-			? (globalThis as any).React
-			: safe<any>("React", () => findByProps("createElement", "useState"))
+		: root.React?.createElement
+			? root.React
+			: root.vendetta?.metro?.common?.React?.createElement
+				? root.vendetta.metro.common.React
+				: safe<any>("React", () => findByProps("createElement", "useState"))
 				?? safe<any>("React", () => findByProps("createElement", "Component"));
+}
+
+function getRN() {
+	const root = runtimeGlobal();
+	return RN?.View
+		? RN
+		: root.ReactNative?.View
+			? root.ReactNative
+			: root.vendetta?.metro?.common?.ReactNative?.View
+				? root.vendetta.metro.common.ReactNative
+				: safe<any>("ReactNative", () => findByProps("AppRegistry"))
+					?? safe<any>("ReactNative", () => findByProps("View", "Text", "Image"))
+					?? {};
 }
 
 function createElement(type: any, props?: any, ...children: any[]) {
@@ -74,7 +95,7 @@ function createElement(type: any, props?: any, ...children: any[]) {
 }
 
 function reactFragment() {
-	return getReact()?.Fragment ?? RN.View;
+	return getReact()?.Fragment ?? getRN().View;
 }
 
 function useSafeState<T>(initial: T): [T, (value: T | ((previous: T) => T)) => void] {
@@ -487,11 +508,11 @@ function LyricsBlock({ lyrics, position }: { lyrics: LyricLine[]; position: numb
 	const visible = lyrics.slice(Math.max(0, active - 1), active + 3);
 
 	return createElement(
-		RN.View,
+		getRN().View,
 		{ style: styles.lyrics },
 		visible.map(line =>
 			createElement(
-				RN.Text,
+				getRN().Text,
 				{
 					key: `${line.time}-${line.text}`,
 					numberOfLines: 1,
@@ -510,17 +531,17 @@ function QueueCard({ next, colors }: { next: Track | null; colors: ReturnType<ty
 	if (!vstorage.showQueue) return null;
 
 	return createElement(
-		RN.View,
+		getRN().View,
 		{ style: [styles.queueCard, { backgroundColor: colors.dark }] },
-		next?.art && createElement(RN.Image, { source: { uri: next.art }, style: styles.queueArt }),
-		createElement(RN.Text, { style: styles.queueTitle }, "Up next"),
+		next?.art && createElement(getRN().Image, { source: { uri: next.art }, style: styles.queueArt }),
+		createElement(getRN().Text, { style: styles.queueTitle }, "Up next"),
 		createElement(
-			RN.Text,
+			getRN().Text,
 			{ numberOfLines: 1, style: styles.queueSong },
 			next?.title ?? "Queue hidden by Discord",
 		),
 		createElement(
-			RN.Text,
+			getRN().Text,
 			{ numberOfLines: 1, style: styles.queueArtist },
 			next?.artist ?? "Discord did not expose the next queue item.",
 		),
@@ -534,9 +555,9 @@ function SpotifyCard() {
 	if (!track) {
 		if (!vstorage.debugAlwaysShow) return null;
 		return createElement(
-			RN.View,
+			getRN().View,
 			{ style: styles.empty },
-			createElement(RN.Text, { style: styles.emptyText }, `No Spotify track detected. ${lastStatus}`),
+			createElement(getRN().Text, { style: styles.emptyText }, `No Spotify track detected. ${lastStatus}`),
 		);
 	}
 
@@ -548,58 +569,58 @@ function SpotifyCard() {
 	const musicIcon = getAssetIDByName("MusicIcon") ?? getAssetIDByName("ic_spotify_white_16px");
 
 	return createElement(
-		RN.View,
+		getRN().View,
 		{ style: [styles.card, { backgroundColor: colors.dark, borderColor: colors.mid }] },
 		vstorage.overrideProfileTheme && createElement(
-			RN.View,
+			getRN().View,
 			{
 				pointerEvents: "none",
 				style: [styles.themeWash, { backgroundColor: colors.dark }],
 			},
-			createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.9 }] }),
-			createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.72 }] }),
-			createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.8 }] }),
+			createElement(getRN().View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.9 }] }),
+			createElement(getRN().View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.72 }] }),
+			createElement(getRN().View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.8 }] }),
 		),
-		createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.92 }] }),
-		createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.7 }] }),
-		createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.78 }] }),
+		createElement(getRN().View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.92 }] }),
+		createElement(getRN().View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.7 }] }),
+		createElement(getRN().View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.78 }] }),
 		createElement(
-			RN.View,
+			getRN().View,
 			{ style: styles.content },
 			createElement(
-				RN.View,
+				getRN().View,
 				{ style: styles.topRow },
 				createElement(
-					RN.View,
+					getRN().View,
 					{ style: styles.artWrap },
 					track.art
-						? createElement(RN.Image, { source: { uri: track.art }, style: styles.art })
-						: musicIcon && createElement(RN.Image, {
+						? createElement(getRN().Image, { source: { uri: track.art }, style: styles.art })
+						: musicIcon && createElement(getRN().Image, {
 							source: musicIcon,
 							style: { width: 34, height: 34, tintColor: "#fff" },
 						}),
 				),
 				createElement(
-					RN.View,
+					getRN().View,
 					{ style: styles.info },
-					createElement(RN.Text, { style: styles.eyebrow }, "Spotify live"),
-					createElement(RN.Text, { numberOfLines: 1, style: styles.title }, track.title),
-					createElement(RN.Text, { numberOfLines: 1, style: styles.artist }, track.artist),
+					createElement(getRN().Text, { style: styles.eyebrow }, "Spotify live"),
+					createElement(getRN().Text, { numberOfLines: 1, style: styles.title }, track.title),
+					createElement(getRN().Text, { numberOfLines: 1, style: styles.artist }, track.artist),
 				),
 			),
 			createElement(
-				RN.View,
+				getRN().View,
 				null,
 				createElement(
-					RN.View,
+					getRN().View,
 					{ style: styles.seekTrack },
-					createElement(RN.View, { style: [styles.seekFill, { width: `${progress}%` }] }),
+					createElement(getRN().View, { style: [styles.seekFill, { width: `${progress}%` }] }),
 				),
 				createElement(
-					RN.View,
+					getRN().View,
 					{ style: styles.rowBetween },
-					createElement(RN.Text, { style: styles.time }, msToClock(position)),
-					createElement(RN.Text, { style: styles.time }, duration ? msToClock(duration) : "--:--"),
+					createElement(getRN().Text, { style: styles.time }, msToClock(position)),
+					createElement(getRN().Text, { style: styles.time }, duration ? msToClock(duration) : "--:--"),
 				),
 			),
 			createElement(QueueCard, { next, colors }),
@@ -720,7 +741,7 @@ export function onLoad() {
 	vstorage.showLyrics ??= true;
 	vstorage.showQueue ??= true;
 	vstorage.overrideProfileTheme ??= true;
-	vstorage.debugAlwaysShow ??= false;
+	vstorage.debugAlwaysShow ??= true;
 
 	resolveModules();
 	unpatchProfile = applyProfilePatches();
@@ -736,18 +757,20 @@ function Settings() {
 
 	if (!FormSection || !FormSwitchRow || !FormRow || !FormText) {
 		return createElement(
-			RN.ScrollView,
+			getRN().ScrollView ?? getRN().View,
 			{ style: styles.settingsWrap },
-			createElement(RN.Text, { style: styles.settingsText }, lastStatus),
-			createElement(RN.Switch, {
-				value: !!vstorage.debugAlwaysShow,
-				onValueChange: (value: boolean) => (vstorage.debugAlwaysShow = value),
-			}),
+			createElement(getRN().Text, { style: styles.settingsText }, lastStatus),
+			getRN().Switch
+				? createElement(getRN().Switch, {
+					value: !!vstorage.debugAlwaysShow,
+					onValueChange: (value: boolean) => (vstorage.debugAlwaysShow = value),
+				})
+				: createElement(getRN().Text, { style: styles.settingsText }, "Debug placeholder is enabled by default."),
 		);
 	}
 
 	return createElement(
-		RN.ScrollView,
+		getRN().ScrollView ?? getRN().View,
 		null,
 		createElement(
 			FormSection,
