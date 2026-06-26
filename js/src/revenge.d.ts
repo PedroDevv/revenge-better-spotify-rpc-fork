@@ -20,10 +20,18 @@ declare module "@vendetta/plugin" {
 	export const storage: Record<string, unknown>;
 }
 
+declare module "@vendetta/storage" {
+	export const useProxy: (storage: Record<string, unknown>) => void;
+}
+
 declare module "@vendetta/ui" {
 	export const semanticColors: Record<string, string>;
 }
 
 declare module "@vendetta/ui/assets" {
 	export const getAssetIDByName: (name: string) => any;
+}
+
+declare module "@vendetta/ui/components" {
+	export const Forms: any;
 }

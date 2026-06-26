@@ -1,23 +1,20 @@
-import { find, findByName, findByProps, findByStoreName } from "@vendetta/metro";
+import { findByName, findByProps, findByStoreName } from "@vendetta/metro";
 import { FluxDispatcher, React, ReactNative as RN, stylesheet } from "@vendetta/metro/common";
 import { after } from "@vendetta/patcher";
 import { storage } from "@vendetta/plugin";
+import { useProxy } from "@vendetta/storage";
 import { semanticColors } from "@vendetta/ui";
 import { getAssetIDByName } from "@vendetta/ui/assets";
+import { Forms } from "@vendetta/ui/components";
 
 type Activity = {
-	name?: string;
 	details?: string;
 	state?: string;
 	sync_id?: string;
-	session_id?: string;
-	party?: { id?: string };
 	timestamps?: { start?: number; end?: number };
 	assets?: {
 		large_image?: string;
 		large_text?: string;
-		small_image?: string;
-		small_text?: string;
 	};
 };
 
@@ -29,7 +26,6 @@ type Track = {
 	art?: string;
 	duration?: number;
 	start?: number;
-	end?: number;
 };
 
 type LyricLine = {
@@ -41,156 +37,26 @@ type PluginStorage = {
 	showLyrics?: boolean;
 	showQueue?: boolean;
 	overrideProfileTheme?: boolean;
-	debugStatus?: boolean;
+	debugAlwaysShow?: boolean;
 };
 
 const vstorage = storage as PluginStorage;
-const vendettaGlobal = (globalThis as any).vendetta ?? {};
-const fallbackReact = {
-	Fragment: undefined,
-	createElement: () => null,
-	useEffect: () => undefined,
-	useMemo: (factory: any) => factory(),
-	useState: (initial: any) => [initial, () => undefined],
-};
-let SafeReact = (React?.createElement ? React : fallbackReact) as typeof React;
-let SafeRN = RN ?? {};
-const color = {
-	backgroundSecondary: semanticColors?.BACKGROUND_SECONDARY ?? "#202225",
-	borderSubtle: semanticColors?.BORDER_SUBTLE ?? "rgba(255,255,255,0.12)",
-	textMuted: semanticColors?.TEXT_MUTED ?? "rgba(255,255,255,0.62)",
-	textNormal: semanticColors?.TEXT_NORMAL ?? "#ffffff",
-};
+const { FormRow, FormSection, FormSwitchRow, FormText } = Forms ?? {};
+
 let SpotifyStore: any;
 let UserStore: any;
-let TableRow: any;
-let TableSwitchRow: any;
-let TableRowGroup: any;
-let UserProfileAboutMeCard: any;
-let SimplifiedUserProfileAboutMeCard: any;
-let YouAboutMeCard: any;
-let UserProfileBio: any;
+let YouScreenProfileCard: any;
 let UserProfileCard: any;
 let UserProfileSection: any;
-let YouScreenProfileCard: any;
+let SimplifiedUserProfileCard: any;
 let TableRowGroupTitle: any;
-let lastStatus = "Not initialized";
-
-function callable(value: unknown): ((...args: any[]) => any) | undefined {
-	if (typeof value === "function") return value as (...args: any[]) => any;
-	if (typeof (value as any)?.default === "function") return (value as any).default;
-	if (typeof (value as any)?.__call === "function") return (value as any).__call;
-	return undefined;
-}
-
-function callAny<T>(fn: unknown, ...args: any[]): T | undefined {
-	const run = callable(fn);
-	if (!run) return undefined;
-	try {
-		return run(...args) as T;
-	} catch {
-		return undefined;
-	}
-}
-
-function firstCall<T>(fns: unknown[], ...args: any[]): T | undefined {
-	for (const fn of fns) {
-		const result = callAny<T>(fn, ...args);
-		if (result) return result;
-	}
-	return undefined;
-}
-
-function metroFind<T>(filter: (module: any) => boolean): T | undefined {
-	return firstCall<T>([
-		find,
-		vendettaGlobal.metro?.find,
-		vendettaGlobal.metro?.default?.find,
-	], filter);
-}
-
-function metroFindByProps<T>(...props: string[]): T | undefined {
-	return firstCall<T>([
-		findByProps,
-		vendettaGlobal.metro?.findByProps,
-		vendettaGlobal.metro?.default?.findByProps,
-	], ...props);
-}
-
-function metroFindByName<T>(name: string, defaultExp = true): T | undefined {
-	return firstCall<T>([
-		findByName,
-		vendettaGlobal.metro?.findByName,
-		vendettaGlobal.metro?.default?.findByName,
-	], name, defaultExp);
-}
-
-function metroFindByStoreName<T>(name: string): T | undefined {
-	return firstCall<T>([
-		findByStoreName,
-		vendettaGlobal.metro?.findByStoreName,
-		vendettaGlobal.metro?.default?.findByStoreName,
-	], name);
-}
-
-function resolveModules() {
-	SafeReact = ((SafeReact as any)?.createElement !== fallbackReact.createElement
-		? SafeReact
-		: React
-			?? vendettaGlobal.metro?.common?.React
-			?? metroFindByProps<any>("createElement", "useState")
-			?? metroFindByProps<any>("createElement", "Component")
-			?? metroFind<any>(module => module?.createElement && module?.useState)
-			?? fallbackReact) as typeof React;
-	SafeRN = SafeRN?.View
-		? SafeRN
-		: RN
-			?? vendettaGlobal.metro?.common?.ReactNative
-			?? metroFindByProps<any>("View", "Text", "Image")
-			?? {};
-
-	SpotifyStore ??= metroFindByStoreName("SpotifyStore");
-	UserStore ??= metroFindByStoreName("UserStore");
-
-	const table = metroFindByProps<any>("TableRow", "TableSwitchRow", "TableRowGroup");
-	TableRow ??= table?.TableRow;
-	TableSwitchRow ??= table?.TableSwitchRow;
-	TableRowGroup ??= table?.TableRowGroup;
-	TableRowGroupTitle ??= table?.TableRowGroupTitle;
-
-	YouScreenProfileCard ??= metroFindByProps<any>("YouScreenProfileCard")?.YouScreenProfileCard;
-	UserProfileAboutMeCard ??= metroFindByName("UserProfileAboutMeCard", false);
-	SimplifiedUserProfileAboutMeCard ??= metroFindByName("SimplifiedUserProfileAboutMeCard", false);
-	YouAboutMeCard ??= metroFindByName("YouAboutMeCard", false);
-	UserProfileBio ??= metroFindByName("UserProfileBio", false);
-	UserProfileCard ??= metroFindByName("UserProfileCard", false);
-	UserProfileSection ??= metroFindByName("UserProfileSection", false);
-
-	lastStatus = [
-		`React:${(SafeReact as any)?.createElement === fallbackReact.createElement ? "missing" : "ok"}`,
-		`RN:${SafeRN?.View ? "ok" : "missing"}`,
-		`Spotify:${SpotifyStore ? "ok" : "missing"}`,
-		`User:${UserStore ? "ok" : "missing"}`,
-		`Settings:${TableRowGroup && TableSwitchRow ? "ok" : "fallback"}`,
-		`Profile:${[
-			YouAboutMeCard,
-			UserProfileAboutMeCard,
-			SimplifiedUserProfileAboutMeCard,
-			UserProfileBio,
-		].filter(Boolean).length}`,
-	].join(" | ");
-}
-
-const flexCenter = {
-	alignItems: "center",
-	justifyContent: "center",
-} as const;
+let lastStatus = "Not loaded yet";
 
 const createStyles =
 	typeof stylesheet?.createThemedStyleSheet === "function"
 		? stylesheet.createThemedStyleSheet.bind(stylesheet)
-		: typeof SafeRN.StyleSheet?.create === "function"
-			? SafeRN.StyleSheet.create.bind(SafeRN.StyleSheet)
+		: typeof RN.StyleSheet?.create === "function"
+			? RN.StyleSheet.create.bind(RN.StyleSheet)
 			: (input: any) => input;
 
 const styles = createStyles({
@@ -200,8 +66,8 @@ const styles = createStyles({
 		marginHorizontal: 12,
 		marginVertical: 8,
 		borderWidth: 1,
-		borderColor: color.borderSubtle,
-		backgroundColor: color.backgroundSecondary,
+		borderColor: semanticColors.BORDER_SUBTLE,
+		backgroundColor: semanticColors.BACKGROUND_SECONDARY,
 	},
 	themeWash: {
 		position: "absolute",
@@ -250,15 +116,12 @@ const styles = createStyles({
 		borderRadius: 12,
 		overflow: "hidden",
 		backgroundColor: "rgba(255,255,255,0.12)",
+		alignItems: "center",
+		justifyContent: "center",
 	},
 	art: {
 		width: 82,
 		height: 82,
-	},
-	artFallback: {
-		width: 82,
-		height: 82,
-		...flexCenter,
 	},
 	info: {
 		flex: 1,
@@ -361,12 +224,12 @@ const styles = createStyles({
 		marginVertical: 8,
 		borderRadius: 14,
 		padding: 14,
-		backgroundColor: color.backgroundSecondary,
+		backgroundColor: semanticColors.BACKGROUND_SECONDARY,
 		borderWidth: 1,
-		borderColor: color.borderSubtle,
+		borderColor: semanticColors.BORDER_SUBTLE,
 	},
 	emptyText: {
-		color: color.textMuted,
+		color: semanticColors.TEXT_MUTED,
 		fontSize: 13,
 		fontWeight: "600",
 	},
@@ -374,32 +237,48 @@ const styles = createStyles({
 		padding: 16,
 		gap: 12,
 	},
-	settingsTitle: {
-		color: color.textNormal,
-		fontSize: 18,
-		fontWeight: "800",
-	},
 	settingsText: {
-		color: color.textMuted,
+		color: semanticColors.TEXT_MUTED,
 		fontSize: 13,
 		fontWeight: "600",
 	},
-	settingsRow: {
-		paddingVertical: 12,
-		borderBottomWidth: 1,
-		borderBottomColor: color.borderSubtle,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		gap: 12,
-	},
-	settingsLabel: {
-		color: color.textNormal,
-		fontSize: 15,
-		fontWeight: "700",
-		flex: 1,
-	},
 });
+
+function safe<T>(label: string, run: () => T): T | undefined {
+	try {
+		return run();
+	} catch (error) {
+		lastStatus = `${label} failed: ${String(error)}`;
+		return undefined;
+	}
+}
+
+function resolveModules() {
+	SpotifyStore ??= safe("SpotifyStore", () => findByStoreName("SpotifyStore"));
+	UserStore ??= safe("UserStore", () => findByStoreName("UserStore"));
+
+	const tables = safe<any>("Tables", () => findByProps("TableRowGroup", "TableRow"));
+	TableRowGroupTitle ??= tables?.TableRowGroupTitle;
+
+	YouScreenProfileCard ??= safe<any>("YouScreenProfileCard", () =>
+		findByProps("YouScreenProfileCard")?.YouScreenProfileCard
+	);
+	UserProfileCard ??= safe("UserProfileCard", () => findByName("UserProfileCard", false));
+	UserProfileSection ??= safe("UserProfileSection", () => findByName("UserProfileSection", false));
+	SimplifiedUserProfileCard ??= safe("SimplifiedUserProfileCard", () =>
+		findByName("SimplifiedUserProfileCard", false)
+	);
+
+	lastStatus = [
+		`React:${React?.createElement ? "ok" : "missing"}`,
+		`RN:${RN?.View ? "ok" : "missing"}`,
+		`Spotify:${SpotifyStore ? "ok" : "missing"}`,
+		`User:${UserStore ? "ok" : "missing"}`,
+		`YouCard:${YouScreenProfileCard ? "ok" : "missing"}`,
+		`ProfileCard:${UserProfileCard ? "ok" : "missing"}`,
+		`Section:${UserProfileSection ? "ok" : "missing"}`,
+	].join(" | ");
+}
 
 function normalizeAlbumArt(raw?: string) {
 	if (!raw) return undefined;
@@ -423,52 +302,37 @@ function getCurrentTrack(): Track | null {
 		album: activity.assets?.large_text,
 		art: normalizeAlbumArt(activity.assets?.large_image),
 		start,
-		end,
 		duration: start && end ? Math.max(0, end - start) : undefined,
 	};
 }
 
-function trackFromUnknown(value: any): Track | null {
-	if (!value) return null;
-	const id = value.id ?? value.uri?.split(":").pop?.() ?? value.trackId;
-	const title = value.name ?? value.title ?? value.details;
-	const artist = value.artist
-		?? value.artists?.map?.((x: any) => x.name ?? x).join(", ")
-		?? value.state;
-	if (!title) return null;
-	const image = value.image
-		?? value.album?.images?.[0]?.url
-		?? value.albumArt
-		?? value.assets?.large_image;
-	return {
-		id,
-		title,
-		artist: artist ?? "Spotify",
-		album: value.album?.name ?? value.album ?? value.assets?.large_text,
-		art: normalizeAlbumArt(image),
-		duration: value.duration_ms ?? value.duration,
-	};
-}
-
 function getNextTrack(): Track | null {
-	resolveModules();
 	const state = SpotifyStore?.getPlayerState?.()
 		?? SpotifyStore?.getState?.()
 		?? SpotifyStore?.getActiveSocketAndDevice?.()?.socket?.state;
-	const candidates = [
-		state?.nextTrack,
-		state?.next_track,
-		state?.queue?.[0],
-		state?.nextTracks?.[0],
-		state?.next_tracks?.[0],
-		state?.playerState?.nextTrack,
-		state?.player_state?.next_track,
-	];
-	for (const candidate of candidates) {
-		const track = trackFromUnknown(candidate);
-		if (track) return track;
-	}
-	return null;
+	const next = state?.nextTrack
+		?? state?.next_track
+		?? state?.queue?.[0]
+		?? state?.nextTracks?.[0]
+		?? state?.next_tracks?.[0];
+	if (!next) return null;
+
+	const title = next.name ?? next.title ?? next.details;
+	if (!title) return null;
+
+	const artist = next.artist
+		?? next.artists?.map?.((item: any) => item.name ?? item).join(", ")
+		?? next.state
+		?? "Spotify";
+
+	return {
+		id: next.id ?? next.uri?.split(":").pop?.() ?? next.trackId,
+		title,
+		artist,
+		album: next.album?.name ?? next.album ?? next.assets?.large_text,
+		art: normalizeAlbumArt(next.image ?? next.album?.images?.[0]?.url ?? next.assets?.large_image),
+		duration: next.duration_ms ?? next.duration,
+	};
 }
 
 function hashPalette(seed: string) {
@@ -512,15 +376,18 @@ function parseSyncedLyrics(raw?: string): LyricLine[] {
 }
 
 function useSpotifySnapshot() {
-	const [tick, setTick] = SafeReact.useState(0);
-	SafeReact.useEffect(() => {
+	const [tick, setTick] = React.useState(0);
+
+	React.useEffect(() => {
 		const update = () => setTick((value: number) => value + 1);
 		const interval = setInterval(update, 1000);
-		const unsubscribers = [
+		const eventNames = [
 			"SPOTIFY_PLAYER_STATE",
 			"SELF_PRESENCE_STORE_UPDATE",
 			"LOCAL_ACTIVITY_UPDATE",
-		].map(type => {
+			"PRESENCE_UPDATES",
+		];
+		const unsubscribers = eventNames.map(type => {
 			try {
 				FluxDispatcher?.subscribe?.(type, update);
 				return () => FluxDispatcher?.unsubscribe?.(type, update);
@@ -528,13 +395,14 @@ function useSpotifySnapshot() {
 				return () => undefined;
 			}
 		});
+
 		return () => {
 			clearInterval(interval);
 			unsubscribers.forEach(unsubscribe => unsubscribe());
 		};
 	}, []);
 
-	return SafeReact.useMemo(() => ({
+	return React.useMemo(() => ({
 		track: getCurrentTrack(),
 		next: getNextTrack(),
 		tick,
@@ -542,12 +410,14 @@ function useSpotifySnapshot() {
 }
 
 function useSyncedLyrics(track: Track | null) {
-	const [lyrics, setLyrics] = SafeReact.useState([] as LyricLine[]);
-	SafeReact.useEffect(() => {
+	const [lyrics, setLyrics] = React.useState([] as LyricLine[]);
+
+	React.useEffect(() => {
 		if (!vstorage.showLyrics || !track?.title || !track.artist) {
 			setLyrics([]);
 			return;
 		}
+
 		let cancelled = false;
 		const params = new URLSearchParams({
 			track_name: track.title,
@@ -559,8 +429,7 @@ function useSyncedLyrics(track: Track | null) {
 		fetch(`https://lrclib.net/api/get?${params.toString()}`)
 			.then(res => (res.ok ? res.json() : null))
 			.then(json => {
-				if (cancelled) return;
-				setLyrics(parseSyncedLyrics(json?.syncedLyrics));
+				if (!cancelled) setLyrics(parseSyncedLyrics(json?.syncedLyrics));
 			})
 			.catch(() => !cancelled && setLyrics([]));
 
@@ -568,24 +437,8 @@ function useSyncedLyrics(track: Track | null) {
 			cancelled = true;
 		};
 	}, [track?.id, track?.title, track?.artist, track?.album, track?.duration, vstorage.showLyrics]);
-	return lyrics;
-}
 
-function SpotifyProfileTheme({ colors }: { colors: ReturnType<typeof hashPalette> }) {
-	if (!vstorage.overrideProfileTheme) return null;
-	return SafeReact.createElement(
-		SafeRN.View,
-		{
-			pointerEvents: "none",
-			style: [
-				styles.themeWash,
-				{ backgroundColor: colors.dark },
-			],
-		},
-		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.9 }] }),
-		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.72 }] }),
-		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.8 }] }),
-	);
+	return lyrics;
 }
 
 function LyricsBlock({ lyrics, position }: { lyrics: LyricLine[]; position: number }) {
@@ -597,12 +450,13 @@ function LyricsBlock({ lyrics, position }: { lyrics: LyricLine[]; position: numb
 		),
 	);
 	const visible = lyrics.slice(Math.max(0, active - 1), active + 3);
-	return SafeReact.createElement(
-		SafeRN.View,
+
+	return React.createElement(
+		RN.View,
 		{ style: styles.lyrics },
 		visible.map(line =>
-			SafeReact.createElement(
-				SafeRN.Text,
+			React.createElement(
+				RN.Text,
 				{
 					key: `${line.time}-${line.text}`,
 					numberOfLines: 1,
@@ -619,20 +473,21 @@ function LyricsBlock({ lyrics, position }: { lyrics: LyricLine[]; position: numb
 
 function QueueCard({ next, colors }: { next: Track | null; colors: ReturnType<typeof hashPalette> }) {
 	if (!vstorage.showQueue) return null;
-	return SafeReact.createElement(
-		SafeRN.View,
-		{ style: [styles.queueCard, { backgroundColor: `${colors.dark}` }] },
-		next?.art && SafeReact.createElement(SafeRN.Image, { source: { uri: next.art }, style: styles.queueArt }),
-		SafeReact.createElement(SafeRN.Text, { style: styles.queueTitle }, "Up next"),
-		SafeReact.createElement(
-			SafeRN.Text,
+
+	return React.createElement(
+		RN.View,
+		{ style: [styles.queueCard, { backgroundColor: colors.dark }] },
+		next?.art && React.createElement(RN.Image, { source: { uri: next.art }, style: styles.queueArt }),
+		React.createElement(RN.Text, { style: styles.queueTitle }, "Up next"),
+		React.createElement(
+			RN.Text,
 			{ numberOfLines: 1, style: styles.queueSong },
 			next?.title ?? "Queue hidden by Discord",
 		),
-		SafeReact.createElement(
-			SafeRN.Text,
+		React.createElement(
+			RN.Text,
 			{ numberOfLines: 1, style: styles.queueArtist },
-			next?.artist ?? "The panel will fill this when Spotify exposes the next track.",
+			next?.artist ?? "Discord did not expose the next queue item.",
 		),
 	);
 }
@@ -642,10 +497,11 @@ function SpotifyCard() {
 	const lyrics = useSyncedLyrics(track);
 
 	if (!track) {
-		return SafeReact.createElement(
-			SafeRN.View,
+		if (!vstorage.debugAlwaysShow) return null;
+		return React.createElement(
+			RN.View,
 			{ style: styles.empty },
-			SafeReact.createElement(SafeRN.Text, { style: styles.emptyText }, "Play something on Spotify to light up your profile."),
+			React.createElement(RN.Text, { style: styles.emptyText }, `No Spotify track detected. ${lastStatus}`),
 		);
 	}
 
@@ -654,234 +510,253 @@ function SpotifyCard() {
 	const position = track.start ? Math.max(0, Math.min(duration, now - track.start)) : 0;
 	const progress = duration ? Math.min(100, Math.max(0, (position / duration) * 100)) : 0;
 	const colors = hashPalette(`${track.id ?? ""}${track.title}${track.artist}${track.art ?? ""}`);
-	const musicIcon = callAny(getAssetIDByName, "MusicIcon") ?? callAny(getAssetIDByName, "ic_spotify_white_16px");
+	const musicIcon = getAssetIDByName("MusicIcon") ?? getAssetIDByName("ic_spotify_white_16px");
 
-	return SafeReact.createElement(
-		SafeRN.View,
+	return React.createElement(
+		RN.View,
 		{ style: [styles.card, { backgroundColor: colors.dark, borderColor: colors.mid }] },
-		SafeReact.createElement(SpotifyProfileTheme, { colors }),
-		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.92 }] }),
-		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.7 }] }),
-		SafeReact.createElement(SafeRN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.78 }] }),
-		SafeReact.createElement(
-			SafeRN.View,
+		vstorage.overrideProfileTheme && React.createElement(
+			RN.View,
+			{
+				pointerEvents: "none",
+				style: [styles.themeWash, { backgroundColor: colors.dark }],
+			},
+			React.createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.9 }] }),
+			React.createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.72 }] }),
+			React.createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.8 }] }),
+		),
+		React.createElement(RN.View, { style: [styles.diagonalA, { backgroundColor: colors.base, opacity: 0.92 }] }),
+		React.createElement(RN.View, { style: [styles.diagonalB, { backgroundColor: colors.mid, opacity: 0.7 }] }),
+		React.createElement(RN.View, { style: [styles.diagonalC, { backgroundColor: colors.soft, opacity: 0.78 }] }),
+		React.createElement(
+			RN.View,
 			{ style: styles.content },
-			SafeReact.createElement(
-				SafeRN.View,
+			React.createElement(
+				RN.View,
 				{ style: styles.topRow },
-				SafeReact.createElement(
-					SafeRN.View,
+				React.createElement(
+					RN.View,
 					{ style: styles.artWrap },
 					track.art
-						? SafeReact.createElement(SafeRN.Image, { source: { uri: track.art }, style: styles.art })
-						: SafeReact.createElement(
-							SafeRN.View,
-							{ style: styles.artFallback },
-							musicIcon && SafeReact.createElement(SafeRN.Image, {
-								source: musicIcon,
-								style: { width: 34, height: 34, tintColor: "#fff" },
-							}),
-						),
+						? React.createElement(RN.Image, { source: { uri: track.art }, style: styles.art })
+						: musicIcon && React.createElement(RN.Image, {
+							source: musicIcon,
+							style: { width: 34, height: 34, tintColor: "#fff" },
+						}),
 				),
-				SafeReact.createElement(
-					SafeRN.View,
+				React.createElement(
+					RN.View,
 					{ style: styles.info },
-					SafeReact.createElement(SafeRN.Text, { style: styles.eyebrow }, "Spotify live"),
-					SafeReact.createElement(SafeRN.Text, { numberOfLines: 1, style: styles.title }, track.title),
-					SafeReact.createElement(SafeRN.Text, { numberOfLines: 1, style: styles.artist }, track.artist),
+					React.createElement(RN.Text, { style: styles.eyebrow }, "Spotify live"),
+					React.createElement(RN.Text, { numberOfLines: 1, style: styles.title }, track.title),
+					React.createElement(RN.Text, { numberOfLines: 1, style: styles.artist }, track.artist),
 				),
 			),
-			SafeReact.createElement(
-				SafeRN.View,
+			React.createElement(
+				RN.View,
 				null,
-				SafeReact.createElement(
-					SafeRN.View,
+				React.createElement(
+					RN.View,
 					{ style: styles.seekTrack },
-					SafeReact.createElement(SafeRN.View, { style: [styles.seekFill, { width: `${progress}%` }] }),
+					React.createElement(RN.View, { style: [styles.seekFill, { width: `${progress}%` }] }),
 				),
-				SafeReact.createElement(
-					SafeRN.View,
+				React.createElement(
+					RN.View,
 					{ style: styles.rowBetween },
-					SafeReact.createElement(SafeRN.Text, { style: styles.time }, msToClock(position)),
-					SafeReact.createElement(SafeRN.Text, { style: styles.time }, duration ? msToClock(duration) : "--:--"),
+					React.createElement(RN.Text, { style: styles.time }, msToClock(position)),
+					React.createElement(RN.Text, { style: styles.time }, duration ? msToClock(duration) : "--:--"),
 				),
 			),
-			SafeReact.createElement(QueueCard, { next, colors }),
-			SafeReact.createElement(LyricsBlock, { lyrics, position }),
+			React.createElement(QueueCard, { next, colors }),
+			React.createElement(LyricsBlock, { lyrics, position }),
 		),
 	);
 }
 
-function ProfileMusicSection(props: { userId?: string; style?: any; variant?: "you" | "simplified" | "bio" }) {
+function ProfileMusicSection({
+	userId,
+	variant,
+	style,
+}: {
+	userId?: string;
+	variant: "you" | "simplified" | "classic";
+	style?: any;
+}) {
 	resolveModules();
 	const selfId = UserStore?.getCurrentUser?.()?.id;
-	if (props.userId && selfId && props.userId !== selfId) return null;
+	if (userId && selfId && userId !== selfId) return null;
 
-	if (props.variant === "you" && YouScreenProfileCard) {
-		return SafeReact.createElement(
+	const card = React.createElement(SpotifyCard);
+	if (!card && !vstorage.debugAlwaysShow) return null;
+
+	if (variant === "you" && YouScreenProfileCard) {
+		return React.createElement(
 			YouScreenProfileCard,
 			{ style: { minHeight: 180 } },
-			TableRowGroupTitle && SafeReact.createElement(TableRowGroupTitle, { title: "Better Spotify RPC" }),
-			SafeReact.createElement(SpotifyCard),
+			TableRowGroupTitle && React.createElement(TableRowGroupTitle, { title: "Better Spotify RPC" }),
+			card,
 		);
 	}
+
+	if (variant === "simplified" && SimplifiedUserProfileCard) {
+		return React.createElement(
+			SimplifiedUserProfileCard,
+			{ title: "Better Spotify RPC", style },
+			card,
+		);
+	}
+
 	if (UserProfileCard) {
-		return SafeReact.createElement(
+		return React.createElement(
 			UserProfileCard,
-			{ title: "Better Spotify RPC", style: props.style },
-			SafeReact.createElement(SpotifyCard),
+			{ title: "Better Spotify RPC", style },
+			card,
 		);
 	}
+
 	if (UserProfileSection) {
-		return SafeReact.createElement(
+		return React.createElement(
 			UserProfileSection,
-			{ title: "Better Spotify RPC" },
-			SafeReact.createElement(SpotifyCard),
+			{ title: "Better Spotify RPC", style },
+			card,
 		);
 	}
-	return SafeReact.createElement(SpotifyCard);
+
+	return card;
 }
 
-function patchProfileCard(component: any, variant: "you" | "simplified" | "bio") {
-	const patchAfter = callable(after);
-	if (!component?.default || !patchAfter) return undefined;
-	try {
-		return patchAfter("default", component, (args: any[], ret: any) => {
+function patchProfileCard(component: any, variant: "you" | "simplified" | "classic") {
+	if (!component?.default) return undefined;
+	return after("default", component, (args: any[], ret: any) => {
 		const props = args[0] ?? {};
 		const userId = props.userId ?? props.displayProfile?.userId;
 		const children = [
-			SafeReact.createElement(ProfileMusicSection, {
+			React.createElement(ProfileMusicSection, {
 				key: "better-spotify-rpc",
 				userId,
 				variant,
-				style: variant === "simplified" ? props.style : undefined,
+				style: props.style,
 			}),
 			ret,
 		];
-		return SafeReact.createElement(SafeReact.Fragment, {}, children);
-		});
-	} catch {
-		return undefined;
-	}
+		return React.createElement(React.Fragment, {}, children);
+	});
 }
 
-function SimpleSettingsRow({
-	label,
-	value,
-	onValueChange,
-}: {
-	label: string;
-	value?: boolean;
-	onValueChange: (value: boolean) => void;
-}) {
-	return SafeReact.createElement(
-		SafeRN.View,
-		{ style: styles.settingsRow },
-		SafeReact.createElement(SafeRN.Text, { style: styles.settingsLabel }, label),
-		SafeRN.Switch
-			? SafeReact.createElement(SafeRN.Switch, {
-				value: !!value,
-				onValueChange,
-			})
-			: SafeReact.createElement(SafeRN.Text, { style: styles.settingsText }, value ? "On" : "Off"),
+function applyProfilePatches() {
+	const YouAboutMeCard = safe("YouAboutMeCard", () => findByName("YouAboutMeCard", false));
+	const UserProfileAboutMeCard = safe("UserProfileAboutMeCard", () =>
+		findByName("UserProfileAboutMeCard", false)
 	);
-}
-
-function SimpleSettings() {
-	const Container = SafeRN.ScrollView ?? SafeRN.View;
-	return SafeReact.createElement(
-		Container,
-		{ style: styles.settingsWrap },
-		SafeReact.createElement(SafeRN.Text, { style: styles.settingsTitle }, "Better Spotify RPC"),
-		SafeReact.createElement(SafeRN.Text, { style: styles.settingsText }, lastStatus),
-		SafeReact.createElement(SimpleSettingsRow, {
-			label: "Album-art profile theme",
-			value: vstorage.overrideProfileTheme,
-			onValueChange: (value: boolean) => (vstorage.overrideProfileTheme = value),
-		}),
-		SafeReact.createElement(SimpleSettingsRow, {
-			label: "Up next card",
-			value: vstorage.showQueue,
-			onValueChange: (value: boolean) => (vstorage.showQueue = value),
-		}),
-		SafeReact.createElement(SimpleSettingsRow, {
-			label: "Synced lyrics",
-			value: vstorage.showLyrics,
-			onValueChange: (value: boolean) => (vstorage.showLyrics = value),
-		}),
+	const SimplifiedUserProfileAboutMeCard = safe("SimplifiedUserProfileAboutMeCard", () =>
+		findByName("SimplifiedUserProfileAboutMeCard", false)
 	);
+	const UserProfileBio = safe("UserProfileBio", () => findByName("UserProfileBio", false));
+
+	const patches = [
+		patchProfileCard(YouAboutMeCard, "you"),
+		patchProfileCard(UserProfileAboutMeCard, "simplified"),
+		patchProfileCard(SimplifiedUserProfileAboutMeCard, "simplified"),
+		UserProfileBio?.default
+			? after("default", UserProfileBio, ([{ displayProfile }]: any[], ret: any) =>
+				displayProfile
+					? React.createElement(React.Fragment, {}, [
+						React.createElement(ProfileMusicSection, {
+							key: "better-spotify-rpc",
+							userId: displayProfile.userId,
+							variant: "classic",
+							style: displayProfile.themeColors ? {} : undefined,
+						}),
+						ret,
+					])
+					: ret)
+			: undefined,
+	].filter((unpatch): unpatch is () => void => typeof unpatch === "function");
+
+	lastStatus = `${lastStatus} | Patches:${patches.length}`;
+	return () => {
+		for (const unpatch of patches) unpatch();
+	};
 }
 
-let patches: (() => void)[] = [];
+let unpatchProfile: (() => void) | undefined;
 
 export function onLoad() {
-	try {
-		resolveModules();
-		vstorage.showLyrics ??= true;
-		vstorage.showQueue ??= true;
-		vstorage.overrideProfileTheme ??= true;
+	vstorage.showLyrics ??= true;
+	vstorage.showQueue ??= true;
+	vstorage.overrideProfileTheme ??= true;
+	vstorage.debugAlwaysShow ??= false;
 
-		patches = [
-			patchProfileCard(YouAboutMeCard, "you"),
-			patchProfileCard(SimplifiedUserProfileAboutMeCard, "simplified"),
-			patchProfileCard(UserProfileAboutMeCard, "simplified"),
-			patchProfileCard(UserProfileBio, "bio"),
-		].filter((unpatch): unpatch is () => void => typeof unpatch === "function");
-		lastStatus = `${lastStatus} | Patches:${patches.length}`;
-	} catch {
-		patches = [];
-	}
+	resolveModules();
+	unpatchProfile = applyProfilePatches();
 }
 
 export function onUnload() {
-	patches.forEach(unpatch => {
-		try {
-			if (typeof unpatch === "function") unpatch();
-		} catch {}
-	});
-	patches = [];
+	unpatchProfile?.();
+	unpatchProfile = undefined;
 }
 
-export function settings() {
-	try {
+function Settings() {
+	useProxy?.(vstorage);
+	const [, forceUpdate] = React.useState(0);
+	const refresh = () => {
 		resolveModules();
-		if (!TableRowGroup || !TableSwitchRow) {
-			return (SafeReact as any)?.createElement === fallbackReact.createElement
-				? null
-				: SafeReact.createElement(SimpleSettings);
-		}
+		forceUpdate((value: number) => value + 1);
+	};
 
-		return SafeReact.createElement(
-		TableRowGroup,
-		{ title: "Better Spotify RPC" },
-		TableRow && SafeReact.createElement(TableRow, {
-			label: "Status",
-			subLabel: lastStatus,
-		}),
-		SafeReact.createElement(TableSwitchRow, {
-			label: "Album-art profile theme",
-			subLabel: "Tint your profile card around the current Spotify cover.",
-			value: vstorage.overrideProfileTheme,
-			onValueChange: (value: boolean) => (vstorage.overrideProfileTheme = value),
-		}),
-		SafeReact.createElement(TableSwitchRow, {
-			label: "Up next card",
-			subLabel: "Show the next Spotify queue item when Discord exposes it.",
-			value: vstorage.showQueue,
-			onValueChange: (value: boolean) => (vstorage.showQueue = value),
-		}),
-		SafeReact.createElement(TableSwitchRow, {
-			label: "Synced lyrics",
-			subLabel: "Fetch synced lines from LRCLIB for the current track.",
-			value: vstorage.showLyrics,
-			onValueChange: (value: boolean) => (vstorage.showLyrics = value),
-		}),
-		TableRow && SafeReact.createElement(TableRow, {
-			label: "Spotify support",
-			subLabel: "This first build intentionally reads Spotify only.",
-		}),
+	if (!FormSection || !FormSwitchRow || !FormRow || !FormText) {
+		return React.createElement(
+			RN.ScrollView,
+			{ style: styles.settingsWrap },
+			React.createElement(RN.Text, { style: styles.settingsText }, lastStatus),
+			React.createElement(RN.Switch, {
+				value: !!vstorage.debugAlwaysShow,
+				onValueChange: (value: boolean) => {
+					vstorage.debugAlwaysShow = value;
+					forceUpdate((count: number) => count + 1);
+				},
+			}),
 		);
-	} catch {
-		return null;
 	}
+
+	return React.createElement(
+		RN.ScrollView,
+		null,
+		React.createElement(
+			FormSection,
+			{ title: "Better Spotify RPC" },
+			React.createElement(FormText, null, lastStatus),
+			React.createElement(FormSwitchRow, {
+				label: "Album-art profile theme",
+				subLabel: "Tint the panel around the current Spotify track.",
+				value: !!vstorage.overrideProfileTheme,
+				onValueChange: (value: boolean) => (vstorage.overrideProfileTheme = value),
+			}),
+			React.createElement(FormSwitchRow, {
+				label: "Up next card",
+				subLabel: "Show queue info if Discord exposes it.",
+				value: !!vstorage.showQueue,
+				onValueChange: (value: boolean) => (vstorage.showQueue = value),
+			}),
+			React.createElement(FormSwitchRow, {
+				label: "Synced lyrics",
+				subLabel: "Fetch synced lyrics from LRCLIB when available.",
+				value: !!vstorage.showLyrics,
+				onValueChange: (value: boolean) => (vstorage.showLyrics = value),
+			}),
+			React.createElement(FormSwitchRow, {
+				label: "Debug placeholder",
+				subLabel: "Show the panel on your profile even when Spotify is not detected.",
+				value: !!vstorage.debugAlwaysShow,
+				onValueChange: (value: boolean) => (vstorage.debugAlwaysShow = value),
+			}),
+			React.createElement(FormRow, {
+				label: "Refresh status",
+				subLabel: "Re-scan Discord modules and update the status line.",
+				onPress: refresh,
+			}),
+		),
+	);
 }
+
+export const settings = Settings;
